@@ -4,6 +4,8 @@
 
 FillMask-JS is a JavaScript application that demonstrates the **fill-mask** functionality using the [Transformers.js](https://github.com/huggingface/transformers.js) library. Built with React and Vite, this project allows users to input sentences containing mask tokens and receive multiple predictions to fill in the blanks using pre-trained language models.
 
+**Alternatively, you can use the application directly on Huggingface Spaces without any installation:** [huggingface.co/spaces/ysdede/fill-mask-demo](https://huggingface.co/spaces/ysdede/fill-mask-demo)
+
 ## Features
 
 - **Model Selection**: Choose from a variety of pre-trained models tailored for different languages and applications.
