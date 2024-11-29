@@ -55,7 +55,7 @@ const SPARE_PLACEHOLDERS = [
 ];
 
 function App() {
-    const [inputText, setInputText] = useState('I had come there not ?? to look at, but ?? to number myself sincerely and wholeheartedly with, the mob. As for my secret moral views, I ?? no room for them amongst my actual, practical ??.');
+    const [inputText, setInputText] = useState('My life was ?? in two, but ?? the previous day I had become accustomed to staking ?? I had.');
     const [predictions, setPredictions] = useState([]);
     const [status, setStatus] = useState('idle');
     const [message, setMessage] = useState('');
