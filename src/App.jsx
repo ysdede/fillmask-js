@@ -29,15 +29,6 @@ const AVAILABLE_MODELS = [
     "benjaminchazelle/camembert-onnx",
     "Xenova/ernie-3.0-base-zh",
     "Xenova/ernie-3.0-medium-zh",
-    "Xenova/xlm-clm-enfr-1024",
-    "Xenova/xlm-mlm-17-1280",
-    "Xenova/antiberta2",
-    "Xenova/ernie-3.0-xbase-zh",
-    "Xenova/ernie-1.0-base-zh",
-    "Xenova/xlm-mlm-en-2048",
-    "r3sgame/bert-base-cased",
-    "Xenova/xlm-mlm-enfr-1024",
-    "Xenova/xlm-mlm-enro-1024",
 ];
 
 const DEVICE_TYPES = [
@@ -57,7 +48,7 @@ const QUANTIZATION_TYPES = [
 ];
 
 const SPARE_PLACEHOLDERS = [
-    { value: 'model_mask', label: 'Model Mask Token' },
+    { value: 'model_mask', label: 'Mask Token' },
     { value: '..', label: 'Double Period (..)' },
     { value: ' ', label: 'Single Space ( )' },
     { value: 'custom', label: 'Custom...' }
@@ -149,14 +140,46 @@ function App() {
     };
 
     const handleDeviceChange = (e) => {
-        setSelectedDevice(e.target.value);
-        const newConfig = getConfigString(selectedModel, e.target.value, selectedQuantization);
+        const newDevice = e.target.value;
+        setSelectedDevice(newDevice);
+        
+        if (newDevice === 'webgpu') {
+            setSelectedQuantization('fp32');
+            addNotification(
+                'Switched to FP32 for WebGPU compatibility. You can change this, but other types may cause issues.',
+                'info',
+                6000
+            );
+        } else {
+            setSelectedQuantization('q8');
+            addNotification(
+                'Switched to Q8 quantization for WASM backend.',
+                'info',
+                3000
+            );
+        }
+        
+        const newConfig = getConfigString(
+            selectedModel, 
+            newDevice, 
+            newDevice === 'webgpu' ? 'fp32' : 'q8'
+        );
         setCanLoadModel(newConfig !== currentConfig);
     };
 
     const handleQuantizationChange = (e) => {
-        setSelectedQuantization(e.target.value);
-        const newConfig = getConfigString(selectedModel, selectedDevice, e.target.value);
+        const newQuantization = e.target.value;
+        setSelectedQuantization(newQuantization);
+        
+        if (selectedDevice === 'webgpu' && newQuantization !== 'fp32') {
+            addNotification(
+                'Selected quantization may not work correctly with WebGPU. Consider using FP32.',
+                'warning',
+                6000
+            );
+        }
+        
+        const newConfig = getConfigString(selectedModel, selectedDevice, newQuantization);
         setCanLoadModel(newConfig !== currentConfig);
     };
 
@@ -274,7 +297,7 @@ function App() {
                         {SPARE_PLACEHOLDERS.map(option => (
                             <option key={option.value} value={option.value}>
                                 {option.value === 'model_mask' 
-                                    ? `Model Mask Token (${modelMaskToken})` 
+                                    ? `Mask Token (${modelMaskToken})` 
                                     : option.label}
                             </option>
                         ))}
@@ -352,8 +375,12 @@ function App() {
                             className="quantization-select"
                         >
                             {QUANTIZATION_TYPES.map(quant => (
-                                <option key={quant.value} value={quant.value}>
+                                <option 
+                                    key={quant.value} 
+                                    value={quant.value}
+                                >
                                     {quant.label}
+                                    {selectedDevice === 'webgpu' && quant.value !== 'fp32' ? ' (not recommended for WebGPU)' : ''}
                                 </option>
                             ))}
                         </select>
