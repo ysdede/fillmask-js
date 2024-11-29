@@ -95,6 +95,58 @@ class MLMModel {
     }
 }
 
+// Replace the current mask finding code with this improved version
+const findMasks = (text, maskToken) => {
+    // Split the text into chunks using the mask token as delimiter
+    const chunks = text.split(maskToken);
+    
+    // If there's only one chunk, no masks were found
+    if (chunks.length === 1) {
+        return {
+            chunks: [text],
+            masks: [],
+            textArray: [text]
+        };
+    }
+
+    const masks = [];
+    let position = 0;
+    const textArray = [];
+
+    // Process each split position to get mask information
+    for (let i = 0; i < chunks.length; i++) {
+        // Add the text chunk to our array
+        textArray.push(chunks[i]);
+        
+        // If this isn't the last chunk, add a mask
+        if (i < chunks.length - 1) {
+            position += chunks[i].length;
+            
+            masks.push({
+                start: position,
+                end: position + maskToken.length,
+                pattern: maskToken,
+                length: maskToken.length,
+                originalText: maskToken,
+                precedingText: chunks[i],
+                followingText: chunks[i + 1],
+                chunkIndex: i // Store which chunk this mask follows
+            });
+            
+            // Add the mask to our text array
+            textArray.push(maskToken);
+            
+            position += maskToken.length;
+        }
+    }
+
+    return {
+        chunks,      // Original chunks from split
+        masks,       // Mask information
+        textArray    // Alternating array of [chunk, mask, chunk, mask, chunk]
+    };
+};
+
 self.onmessage = async (event) => {
     try {
         const { type, text, model, device, quantization } = event.data;
@@ -137,38 +189,12 @@ self.onmessage = async (event) => {
                 throw new Error('Mask token not available. Please check model documentation.');
             }
 
-            // Normalize text: replace triple or more spaces with double space
-            // and normalize other whitespace (tabs, newlines) to single space
-            let normalizedText = text
-                .replace(/\s{3,}/g, '  ')  // Replace 3+ spaces with double space
-                .replace(/[^\S ]+/g, ' ')  // Replace other whitespace (not spaces) with single space
-                .trim();
+            let normalizedText = text.replace(/\s{2,}/g, ' ').trim();
+            normalizedText = normalizedText.replaceAll('??', MLMModel.maskToken);
+            console.log('Normalized text:', normalizedText);
             
-            // Find all mask patterns and their positions
-            const masks = [];
-            const patterns = ['??', '<mask>', '[MASK]'];
+            const { chunks, masks, textArray } = findMasks(normalizedText, MLMModel.maskToken);
             
-            // Find all mask positions with their original text
-            patterns.forEach(pattern => {
-                let pos = 0;
-                let tempText = normalizedText;
-                
-                while ((pos = tempText.indexOf(pattern)) !== -1) {
-                    const globalPos = normalizedText.indexOf(pattern, masks.length > 0 ? masks[masks.length - 1].end : 0);
-                    masks.push({
-                        start: globalPos,
-                        end: globalPos + pattern.length,
-                        pattern: pattern,
-                        length: pattern.length,
-                        originalText: pattern
-                    });
-                    tempText = tempText.substring(pos + pattern.length);
-                }
-            });
-
-            // Sort masks by position
-            masks.sort((a, b) => a.start - b.start);
-
             if (masks.length === 0) {
                 postMessage({
                     status: 'error',
@@ -176,6 +202,9 @@ self.onmessage = async (event) => {
                 });
                 return;
             }
+
+            console.log('Text chunks:', chunks);
+            console.log('Masks:', masks);
 
             const startTime = performance.now();
             const allPredictions = [];
@@ -191,37 +220,34 @@ self.onmessage = async (event) => {
                 console.log(`Inference #${step} raw text: "${text}"`);
             };
 
-            // Process each mask position separately
+            // Process each mask
             for (let i = 0; i < masks.length; i++) {
-                let currentMaskedText = currentText;
-                let positionAdjustment = 0;
+                // Reconstruct text with current mask token and placeholders
+                let currentMaskedText = '';
                 
-                masks.forEach((mask, index) => {
-                    const adjustedStart = mask.start + positionAdjustment;
-                    const adjustedEnd = mask.end + positionAdjustment;
-                    
-                    if (index === i) {
-                        // Replace current mask with model's mask token
-                        currentMaskedText = 
-                            currentMaskedText.substring(0, adjustedStart) + 
-                            MLMModel.maskToken + 
-                            currentMaskedText.substring(adjustedEnd);
-                        positionAdjustment += MLMModel.maskToken.length - mask.length;
-                    } else if (index > i) {
-                        // Replace future masks with spare placeholder
-                        const placeholder = sparePlaceholder || MLMModel.maskToken;
-                        currentMaskedText = 
-                            currentMaskedText.substring(0, adjustedStart) + 
-                            placeholder + 
-                            currentMaskedText.substring(adjustedEnd);
-                        positionAdjustment += placeholder.length - mask.length;
+                for (let j = 0; j < textArray.length; j++) {
+                    if (j % 2 === 0) {
+                        // Text chunk
+                        currentMaskedText += textArray[j];
+                    } else {
+                        // Mask position
+                        const maskIndex = Math.floor(j/2);
+                        if (maskIndex === i) {
+                            // This is our current mask position
+                            currentMaskedText += MLMModel.maskToken;
+                        } else if (maskIndex < i) {
+                            // Previous masks - use their predictions
+                            const previousPrediction = allPredictions[maskIndex].predictions[0].split(' (')[0];
+                            currentMaskedText += previousPrediction;
+                        } else {
+                            // Future masks - use placeholder
+                            currentMaskedText += (sparePlaceholder || MLMModel.maskToken);
+                        }
                     }
-                });
+                }
 
                 // Log the exact text being used for inference
                 logInferenceText(i + 1, currentMaskedText);
-
-                console.log(`Inference #${i + 1} using text:`, currentMaskedText);
 
                 const outputs = await mlm(currentMaskedText, {
                     topk: 5,
@@ -232,6 +258,7 @@ self.onmessage = async (event) => {
                         skip_special_tokens: true,
                         clean_up_tokenization_spaces: true
                     }).trim();
+                    
                     return {
                         text: decodedToken,
                         score: output.score,
@@ -250,22 +277,22 @@ self.onmessage = async (event) => {
                     ).join('')
                 });
 
-                // If using sequential unmasking, update the text with the best prediction
-                if (useSequential && i < masks.length - 1) {
-                    const bestPrediction = predictions[0].text;
-                    currentText = 
-                        currentText.substring(0, masks[i].start) + 
-                        bestPrediction + 
-                        currentText.substring(masks[i].start + masks[i].length);
-                }
+                // Update text array with prediction (including the last mask)
+                const maskPosition = (i * 2) + 1;
+                textArray[maskPosition] = predictions[0].text;
             }
+
+            // After all predictions are done, construct the final complete sentence
+            const finalText = textArray.join('');
+            console.log('Final completed text:', finalText);
 
             const inferenceTime = performance.now() - startTime;
 
             postMessage({
                 status: 'complete',
                 allPredictions,
-                inferenceTime: inferenceTime.toFixed(0)
+                inferenceTime: inferenceTime.toFixed(0),
+                completedText: finalText
             });
         }
     } catch (error) {

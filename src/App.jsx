@@ -118,15 +118,7 @@ function App() {
                 setPredictions(allPredictions);
                 setMessage('');
                 setInferenceTime(inferenceTime);
-                
-                if (allPredictions && allPredictions.length > 0) {
-                    let finalText = inputText;
-                    allPredictions.forEach(predSet => {
-                        const topPrediction = predSet.predictions[0].split(' (')[0];
-                        finalText = finalText.replace(predSet.originalPattern, topPrediction);
-                    });
-                    setCompletedSentence(finalText);
-                }
+                setCompletedSentence(event.data.completedText);
             } else if (status === 'error') {
                 setStatus('error');
                 setPredictions(predictions);
@@ -370,6 +362,7 @@ function App() {
                         <button
                             onClick={handleLoadModel}
                             disabled={status === 'loading' || !canLoadModel}
+                            className="load-button"
                         >
                             {status === 'loading' ? 'Loading...' : 'Load Model'}
                         </button>
