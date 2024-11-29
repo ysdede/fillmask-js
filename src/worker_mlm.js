@@ -216,7 +216,6 @@ self.onmessage = async (event) => {
                     if (char === ' ') return '␣';  // Unicode symbol for space
                     return char;
                 }).join('');
-                console.log(`Inference #${step} exact text: "${textForDisplay}"`);
                 console.log(`Inference #${step} raw text: "${text}"`);
             };
 

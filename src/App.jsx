@@ -64,7 +64,7 @@ const SPARE_PLACEHOLDERS = [
 ];
 
 function App() {
-    const [inputText, setInputText] = useState('It ?? life, Jim, but not as we ?? it.');
+    const [inputText, setInputText] = useState('I had come there not ?? to look at, but ?? to number myself sincerely and wholeheartedly with, the mob. As for my secret moral views, I ?? no room for them amongst my actual, practical ??.');
     const [predictions, setPredictions] = useState([]);
     const [status, setStatus] = useState('idle');
     const [message, setMessage] = useState('');
@@ -302,8 +302,6 @@ function App() {
                                 </div>
                                 <div className="inference-text">
                                     Raw text: {predictionSet.inferenceText}
-                                    <br />
-                                    Visible spaces: {predictionSet.inferenceTextDisplay}
                                 </div>
                                 <div className="predictions-scroll horizontal">
                                     {predictionSet.predictions.map((pred, index) => (
