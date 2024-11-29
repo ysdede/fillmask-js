@@ -60,7 +60,6 @@ const SPARE_PLACEHOLDERS = [
     { value: 'model_mask', label: 'Model Mask Token' },
     { value: '..', label: 'Double Period (..)' },
     { value: ' ', label: 'Single Space ( )' },
-    { value: '', label: 'None' },
     { value: 'custom', label: 'Custom...' }
 ];
 
