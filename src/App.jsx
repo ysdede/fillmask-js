@@ -56,8 +56,16 @@ const QUANTIZATION_TYPES = [
     { value: 'bnb4', label: 'BNB4 (4-bit Bitsandbytes quantization)' },
 ];
 
+const SPARE_PLACEHOLDERS = [
+    { value: 'model_mask', label: 'Model Mask Token' },
+    { value: '..', label: 'Double Period (..)' },
+    { value: ' ', label: 'Single Space ( )' },
+    { value: '', label: 'None' },
+    { value: 'custom', label: 'Custom...' }
+];
+
 function App() {
-    const [inputText, setInputText] = useState('It is life, Jim, but not as we .. it.');
+    const [inputText, setInputText] = useState('It ?? life, Jim, but not as we ?? it.');
     const [predictions, setPredictions] = useState([]);
     const [status, setStatus] = useState('idle');
     const [message, setMessage] = useState('');
@@ -72,6 +80,10 @@ function App() {
     const notificationIdRef = React.useRef(0);
     const [canLoadModel, setCanLoadModel] = useState(true);
     const [currentConfig, setCurrentConfig] = useState(null);
+    const [useSequentialUnmasking, setUseSequentialUnmasking] = useState(false);
+    const [sparePlaceholder, setSparePlaceholder] = useState('model_mask');
+    const [customPlaceholder, setCustomPlaceholder] = useState('');
+    const [modelMaskToken, setModelMaskToken] = useState('[MASK]');
 
     useEffect(() => {
         document.title = 'transformers.js fill-mask demo';
@@ -96,14 +108,14 @@ function App() {
         const mlmWorker = new Worker(new URL('./worker_mlm.js', import.meta.url), { type: 'module' });
 
         mlmWorker.onmessage = (event) => {
-            const { status, predictions, message, loadTime, inferenceTime, duration } = event.data;
+            const { status, predictions, allPredictions, message, loadTime, inferenceTime, duration, maskToken } = event.data;
 
             if (status === 'loading' || status === 'progress') {
                 setStatus('loading');
                 setMessage(message);
             } else if (status === 'complete') {
                 setStatus('complete');
-                setPredictions(predictions);
+                setPredictions(allPredictions);
                 setMessage('');
                 setInferenceTime(inferenceTime);
             } else if (status === 'error') {
@@ -116,6 +128,7 @@ function App() {
                 setStatus('idle');
                 setMessage('');
                 setLoadTime(loadTime);
+                setModelMaskToken(maskToken);
             } else if (status === 'info' || status === 'warning') {
                 addNotification(message, status, duration || 5000);
             }
@@ -188,7 +201,14 @@ function App() {
             setStatus('loading');
             setMessage('Processing...');
             setInferenceTime(null);
-            worker.postMessage({ type: 'predict', text: inputText });
+            worker.postMessage({ 
+                type: 'predict', 
+                text: inputText,
+                useSequential: useSequentialUnmasking,
+                sparePlaceholder: sparePlaceholder === 'model_mask' ? modelMaskToken : 
+                                sparePlaceholder === 'custom' ? customPlaceholder : 
+                                sparePlaceholder
+            });
         }
     };
 
@@ -201,22 +221,78 @@ function App() {
                     cols="50"
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    placeholder="Enter a sentence with <mask> or .. (double period)"
+                    placeholder="Enter a sentence with <mask> or ?? (double question mark)"
                 />
                 
                 <div className="usage-hint">
-                    You can type '..' (double period) instead of '&lt;mask&gt;' for faster input
+                    You can type '??' (double question mark) instead of '&lt;mask&gt;' for faster input
+                </div>
+
+                <div className="sequential-option">
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={useSequentialUnmasking}
+                            onChange={(e) => setUseSequentialUnmasking(e.target.checked)}
+                        />
+                        Use previous predictions for sequential unmasking
+                    </label>
+                </div>
+
+                <div className="spare-placeholder-option">
+                    <label>Placeholder for unpredicted masks:</label>
+                    <select 
+                        value={sparePlaceholder} 
+                        onChange={(e) => {
+                            setSparePlaceholder(e.target.value);
+                            if (e.target.value !== 'custom') {
+                                setCustomPlaceholder('');
+                            }
+                        }}
+                    >
+                        {SPARE_PLACEHOLDERS.map(option => (
+                            <option key={option.value} value={option.value}>
+                                {option.value === 'model_mask' 
+                                    ? `Model Mask Token (${modelMaskToken})` 
+                                    : option.label}
+                            </option>
+                        ))}
+                    </select>
+                    {sparePlaceholder === 'custom' && (
+                        <input
+                            type="text"
+                            value={customPlaceholder}
+                            onChange={(e) => setCustomPlaceholder(e.target.value)}
+                            placeholder="Enter custom placeholder"
+                            className="custom-placeholder-input"
+                        />
+                    )}
                 </div>
 
                 {status === 'complete' && predictions.length > 0 && (
-                    <div className="predictions-container">
-                        <div className="predictions-scroll">
-                            {predictions.map((pred, index) => (
-                                <div key={index} className="prediction-item">
-                                    {pred}
+                    <div className="all-predictions-container">
+                        {predictions.map((predictionSet, setIndex) => (
+                            <div key={setIndex} className="predictions-container">
+                                <div className="mask-label">
+                                    Mask #{predictionSet.maskIndex} 
+                                    <span className="mask-info">
+                                        (original: {predictionSet.originalPattern})
+                                    </span>
                                 </div>
-                            ))}
-                        </div>
+                                <div className="inference-text">
+                                    Raw text: {predictionSet.inferenceText}
+                                    <br />
+                                    Visible spaces: {predictionSet.inferenceTextDisplay}
+                                </div>
+                                <div className="predictions-scroll horizontal">
+                                    {predictionSet.predictions.map((pred, index) => (
+                                        <div key={index} className="prediction-item">
+                                            {pred}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
 
