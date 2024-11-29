@@ -83,6 +83,7 @@ function App() {
     const [sparePlaceholder, setSparePlaceholder] = useState('model_mask');
     const [customPlaceholder, setCustomPlaceholder] = useState('');
     const [modelMaskToken, setModelMaskToken] = useState('[MASK]');
+    const [completedSentence, setCompletedSentence] = useState('');
 
     useEffect(() => {
         document.title = 'transformers.js fill-mask demo';
@@ -117,6 +118,15 @@ function App() {
                 setPredictions(allPredictions);
                 setMessage('');
                 setInferenceTime(inferenceTime);
+                
+                if (allPredictions && allPredictions.length > 0) {
+                    let finalText = inputText;
+                    allPredictions.forEach(predSet => {
+                        const topPrediction = predSet.predictions[0].split(' (')[0];
+                        finalText = finalText.replace(predSet.originalPattern, topPrediction);
+                    });
+                    setCompletedSentence(finalText);
+                }
             } else if (status === 'error') {
                 setStatus('error');
                 setPredictions(predictions);
@@ -236,6 +246,15 @@ function App() {
                             {status === 'loading' ? 'Processing...' : 'Unmask'}
                         </button>
                     </div>
+                </div>
+
+                <div className="completed-sentence">
+                    {completedSentence && status === 'complete' && (
+                        <>
+                            <span className="completed-label">Completed sentence:</span>
+                            <span className="completed-text">{completedSentence}</span>
+                        </>
+                    )}
                 </div>
 
                 <div className="sequential-option">

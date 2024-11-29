@@ -426,3 +426,24 @@ button:disabled {
     margin: 0;
     min-width: 100px;
 }
+
+.completed-sentence {
+    margin: 1rem 0;
+    padding: 0.8rem;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    text-align: left;
+    font-size: 1em;
+    line-height: 1.4;
+}
+
+.completed-label {
+    color: #666;
+    font-weight: bold;
+    margin-right: 0.5rem;
+}
+
+.completed-text {
+    color: #212529;
+}
