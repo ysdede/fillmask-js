@@ -402,3 +402,27 @@ button:disabled {
     border-radius: 4px;
     width: 150px;
 }
+
+.input-section {
+    margin-bottom: 1rem;
+}
+
+.input-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+}
+
+.usage-hint {
+    font-size: 0.8em;
+    color: #888;
+    text-align: left;
+    font-style: italic;
+    flex: 1;
+}
+
+.unmask-button {
+    margin: 0;
+    min-width: 100px;
+}

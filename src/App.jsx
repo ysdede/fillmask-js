@@ -79,7 +79,7 @@ function App() {
     const notificationIdRef = React.useRef(0);
     const [canLoadModel, setCanLoadModel] = useState(true);
     const [currentConfig, setCurrentConfig] = useState(null);
-    const [useSequentialUnmasking, setUseSequentialUnmasking] = useState(false);
+    const [useSequentialUnmasking, setUseSequentialUnmasking] = useState(true);
     const [sparePlaceholder, setSparePlaceholder] = useState('model_mask');
     const [customPlaceholder, setCustomPlaceholder] = useState('');
     const [modelMaskToken, setModelMaskToken] = useState('[MASK]');
@@ -215,16 +215,27 @@ function App() {
         <div className="container">
             <h2>transformers.js fill-mask demo</h2>
             <div className="card">
-                <textarea
-                    rows="2"
-                    cols="50"
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    placeholder="Enter a sentence with <mask> or ?? (double question mark)"
-                />
-                
-                <div className="usage-hint">
-                    You can type '??' (double question mark) instead of '&lt;mask&gt;' for faster input
+                <div className="input-section">
+                    <textarea
+                        rows="2"
+                        cols="50"
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        placeholder="Enter a sentence with <mask> or ?? (double question mark)"
+                    />
+                    
+                    <div className="input-footer">
+                        <div className="usage-hint">
+                            You can type '??' (double question mark) instead of '&lt;mask&gt;' for faster input
+                        </div>
+                        <button
+                            onClick={handlePredict}
+                            disabled={status === 'loading' || !isModelLoaded}
+                            className="unmask-button"
+                        >
+                            {status === 'loading' ? 'Processing...' : 'Unmask'}
+                        </button>
+                    </div>
                 </div>
 
                 <div className="sequential-option">
@@ -300,13 +311,6 @@ function App() {
                         Inference time: {inferenceTime}ms
                     </div>
                 )}
-
-                <button
-                    onClick={handlePredict}
-                    disabled={status === 'loading' || !isModelLoaded}
-                >
-                    {status === 'loading' ? 'Processing...' : 'Unmask'}
-                </button>
 
                 <div className="model-section">
                     <h3>Model Selection</h3>
